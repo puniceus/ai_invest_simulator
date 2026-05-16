@@ -38,7 +38,7 @@ def run_once(config: RuntimeConfig, force: bool = False) -> dict[str, object]:
     )
 
     updated_params = clamp_param_updates(params, ai_plan.get("param_updates", {}) if isinstance(ai_plan, dict) else {})
-    sells = build_sell_orders(today, state.portfolios, history, updated_params)
+    sells = build_sell_orders(today, state.portfolios, history, updated_params, ai_plan)
     buys = build_buy_orders(today, state.portfolios, candidates, updated_params, ai_plan)
     trades = sells + buys
     state.trades.extend(trades)
@@ -79,4 +79,25 @@ def run_once(config: RuntimeConfig, force: bool = False) -> dict[str, object]:
         "us_equity": us_equity,
         "daily_return": daily_return,
         "cumulative_return": cumulative_return,
+    }
+
+
+def render_latest(config: RuntimeConfig) -> dict[str, object]:
+    state = load_state()
+    params = load_params()
+    today = state.last_run_date or datetime.now(ZoneInfo(KST_TIMEZONE)).strftime("%Y-%m-%d")
+    history = load_universe(use_mock_data=config.use_mock_data)
+    snapshot = portfolio_snapshot(state.portfolios, history)
+    latest_curve = state.equity_curve[-1] if state.equity_curve else {}
+    daily_return = float(latest_curve.get("daily_return", 0.0))
+    cumulative_return = float(latest_curve.get("cumulative_return", 0.0))
+    latest_strategy = state.strategy_history[-1] if state.strategy_history else {}
+    ai_plan = latest_strategy.get("ai_plan", {"summary": "아직 생성된 AI 판단 요약이 없습니다."})
+    trades = [trade for trade in state.trades if trade.date == today]
+    report_path = build_report(today, snapshot, daily_return, cumulative_return, trades, ai_plan, params)
+    return {
+        "date": today,
+        "report_path": str(report_path),
+        "trades": len(trades),
+        "render_only": True,
     }

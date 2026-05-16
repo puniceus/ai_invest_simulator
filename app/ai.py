@@ -65,6 +65,7 @@ def ask_ai_for_plan(
   "summary": "오늘 판단 요약",
   "buy_tickers": ["최대 3개 ticker"],
   "rationales": {{"ticker": "매수/보유 판단 이유"}},
+  "sell_decisions": {{"ticker": {{"action": "SELL 또는 HOLD", "reason": "익절 기준 도달 후 매도/홀딩 판단 이유"}}}},
   "param_updates": {{
     "momentum_5_weight": 0.35,
     "momentum_20_weight": 0.35,
@@ -75,7 +76,6 @@ def ask_ai_for_plan(
     "take_profit_pct": 0.09,
     "stop_loss_pct": -0.045,
     "max_holding_days": 20,
-    "min_holding_days": 3,
     "cash_reserve_pct": 0.15
   }}
 }}
@@ -113,4 +113,3 @@ def clamp_param_updates(params: StrategyParams, updates: dict[str, Any]) -> Stra
     if data["min_holding_days"] > data["max_holding_days"]:
         data["min_holding_days"] = min(3, data["max_holding_days"])
     return StrategyParams(**data)
-

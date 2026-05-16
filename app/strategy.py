@@ -76,8 +76,10 @@ def build_sell_orders(
     portfolios: dict[str, Portfolio],
     history: dict[str, dict[str, pd.DataFrame]],
     params: StrategyParams,
+    ai_plan: dict[str, Any] | None = None,
 ) -> list[Trade]:
     sells: list[Trade] = []
+    sell_decisions = ai_plan.get("sell_decisions", {}) if isinstance(ai_plan, dict) else {}
     for portfolio in portfolios.values():
         remaining: list[Position] = []
         for position in portfolio.positions:
@@ -91,8 +93,13 @@ def build_sell_orders(
             reason = ""
             if pnl_pct <= params.stop_loss_pct:
                 reason = f"손절 기준 도달: {pnl_pct:.1%}"
-            elif pnl_pct >= params.take_profit_pct and position.days_held >= params.min_holding_days:
-                reason = f"익절 기준 도달: {pnl_pct:.1%}"
+            elif pnl_pct >= params.take_profit_pct:
+                decision = sell_decisions.get(position.ticker, {})
+                if isinstance(decision, dict) and str(decision.get("action", "")).upper() == "HOLD":
+                    position.thesis = str(decision.get("reason") or f"익절 기준을 넘었지만 추가 상승 여지가 있어 홀딩: {pnl_pct:.1%}")
+                    remaining.append(position)
+                    continue
+                reason = str(decision.get("reason") if isinstance(decision, dict) else "") or f"익절 기준 도달: {pnl_pct:.1%}"
             elif position.days_held >= params.max_holding_days:
                 reason = f"최대 보유기간 {params.max_holding_days}일 도달"
 
@@ -197,4 +204,3 @@ def portfolio_snapshot(portfolios: dict[str, Portfolio], history: dict[str, dict
         total += equity
         markets[key] = {"cash": portfolio.cash, "position_value": position_value, "equity": equity, "positions": positions}
     return {"total_equity": total, "markets": markets}
-
