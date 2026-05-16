@@ -1,0 +1,2 @@
+"""AI invest simulator package."""
+
