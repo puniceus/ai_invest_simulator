@@ -14,13 +14,14 @@ def main() -> None:
     run_parser.add_argument("--mock", action="store_true", help="use deterministic mock market data")
     run_parser.add_argument("--no-ai", action="store_true", help="skip Gemini and use quant strategy only")
     run_parser.add_argument("--force", action="store_true", help="run again even if today's simulation already exists")
+    run_parser.add_argument("--market", choices=["KR", "US"], help="trade only one market")
     render_parser = sub.add_parser("render", help="render the latest report without trading")
     render_parser.add_argument("--mock", action="store_true", help="use deterministic mock market data")
     args = parser.parse_args()
 
     load_environment()
     if args.command == "run":
-        result = run_once(RuntimeConfig(use_mock_data=args.mock, allow_ai=not args.no_ai), force=args.force)
+        result = run_once(RuntimeConfig(use_mock_data=args.mock, allow_ai=not args.no_ai), force=args.force, market=args.market)
         print(json.dumps(result, ensure_ascii=False, indent=2))
     elif args.command == "render":
         result = render_latest(RuntimeConfig(use_mock_data=args.mock, allow_ai=False))

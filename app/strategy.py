@@ -44,8 +44,8 @@ def score_candidates(history: dict[str, dict[str, pd.DataFrame]], params: Strate
                 + params.low_volatility_weight * low_vol_score
             )
             reason = (
-                f"5일 모멘텀 {momentum_5:.1%}, 20일 모멘텀 {momentum_20:.1%}, "
-                f"거래량 배율 {volume_ratio:.2f}, 10일 변동성 {volatility_10:.1%}"
+                f"5-day momentum {momentum_5:.1%}, 20-day momentum {momentum_20:.1%}, "
+                f"volume ratio {volume_ratio:.2f}, 10-day volatility {volatility_10:.1%}"
             )
             candidates.append(
                 Candidate(
@@ -77,10 +77,13 @@ def build_sell_orders(
     history: dict[str, dict[str, pd.DataFrame]],
     params: StrategyParams,
     ai_plan: dict[str, Any] | None = None,
+    market: str | None = None,
 ) -> list[Trade]:
     sells: list[Trade] = []
     sell_decisions = ai_plan.get("sell_decisions", {}) if isinstance(ai_plan, dict) else {}
     for portfolio in portfolios.values():
+        if market and portfolio.market != market:
+            continue
         remaining: list[Position] = []
         for position in portfolio.positions:
             price = _current_price(history, position)
@@ -92,16 +95,16 @@ def build_sell_orders(
             pnl_pct = price / position.avg_price - 1
             reason = ""
             if pnl_pct <= params.stop_loss_pct:
-                reason = f"손절 기준 도달: {pnl_pct:.1%}"
+                reason = f"Stop loss reached: {pnl_pct:.1%}"
             elif pnl_pct >= params.take_profit_pct:
                 decision = sell_decisions.get(position.ticker, {})
                 if isinstance(decision, dict) and str(decision.get("action", "")).upper() == "HOLD":
-                    position.thesis = str(decision.get("reason") or f"익절 기준을 넘었지만 추가 상승 여지가 있어 홀딩: {pnl_pct:.1%}")
+                    position.thesis = str(decision.get("reason") or f"Profit target reached, but holding for more upside: {pnl_pct:.1%}")
                     remaining.append(position)
                     continue
-                reason = str(decision.get("reason") if isinstance(decision, dict) else "") or f"익절 기준 도달: {pnl_pct:.1%}"
+                reason = str(decision.get("reason") if isinstance(decision, dict) else "") or f"Profit target reached: {pnl_pct:.1%}"
             elif position.days_held >= params.max_holding_days:
-                reason = f"최대 보유기간 {params.max_holding_days}일 도달"
+                reason = f"Max holding period reached: {params.max_holding_days} days"
 
             if reason:
                 amount = price * position.shares
@@ -133,8 +136,11 @@ def build_buy_orders(
     candidates: list[Candidate],
     params: StrategyParams,
     ai_plan: dict[str, Any] | None = None,
+    market: str | None = None,
 ) -> list[Trade]:
     allowed = params.max_new_buys_per_day
+    if market:
+        candidates = [candidate for candidate in candidates if candidate.market == market]
     if ai_plan and isinstance(ai_plan.get("buy_tickers"), list):
         rank = {ticker: idx for idx, ticker in enumerate(ai_plan["buy_tickers"])}
         candidates = sorted(candidates, key=lambda item: (rank.get(item.ticker, 999), -item.score))
