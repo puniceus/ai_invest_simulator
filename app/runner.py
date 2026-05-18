@@ -64,7 +64,15 @@ def run_once(config: RuntimeConfig, force: bool = False, market: MarketArg = Non
 
     updated_params = clamp_param_updates(params, ai_plan.get("param_updates", {}) if isinstance(ai_plan, dict) else {})
     sells = build_sell_orders(today, state.portfolios, history, updated_params, ai_plan, market=market)
-    buys = build_buy_orders(today, state.portfolios, active_candidates, updated_params, ai_plan, market=market)
+    buys = build_buy_orders(
+        today,
+        state.portfolios,
+        active_candidates,
+        updated_params,
+        ai_plan,
+        market=market,
+        require_explicit_ai_buys=config.allow_ai,
+    )
     trades = sells + buys
     state.trades.extend(trades)
 
